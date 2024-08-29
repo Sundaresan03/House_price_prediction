@@ -1,0 +1,109 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedShuffleSplit
+from pandas.plotting import scatter_matrix
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+%matplotlib inline
+df = pd.read_csv("/content/dataset.csv")
+df.head()
+df.hist(bins=50 , figsize=(20,15))
+def train_test_split(data , test_ratio):
+    np.random.seed(42)
+    shuffle=np.random.permutation(len(data))
+    test_set_size = int(len(data) * test_ratio)
+    test_indices = shuffle[:test_set_size]
+    train_indices = shuffle[test_set_size:]
+    return data.iloc[train_indices], data.iloc[test_indices]
+from sklearn.model_selection import train_test_split
+train_set , test_set = train_test_split(df , test_size=0.2 , random_state=42)
+print(f"Rows in train set:{len(train_set)}\nRows in test set:{len(test_set)}\n")
+split = StratifiedShuffleSplit(n_splits=1,test_size=0.2 ,random_state =42)
+for train_index , test_index in split.split(df , df['CHAS']):
+    strat_train_set = df.loc[train_index]
+    strat_test_set = df.loc[test_index]
+strat_test_set
+strat_train_set.shape
+print(strat_test_set.describe())
+x_train = strat_train_set.copy()
+corr_matrix = x_train.corr()
+corr_matrix['MEDV'].sort_values(ascending=False)
+attributes =["RM","ZN","MEDV","LSTAT"]
+scatter_matrix(x_train[attributes],figsize=(12,8))
+attributes =["RM","ZN","MEDV","LSTAT"]
+scatter_matrix(x_train[attributes],figsize=(12,8))
+x_train.plot(kind="scatter", x="LSTAT",y="MEDV",alpha=0.8)
+x_train["TAXRM"]=x_train["TAX"]/x_train["RM"]
+x_train.head()
+corr_matrix = x_train.corr()
+corr_matrix['MEDV'].sort_values(ascending=False)
+x_train.plot(kind="scatter", x="TAXRM",y="MEDV",alpha=0.8)
+x_train.shape
+x_train = strat_train_set.drop("MEDV",axis=1)
+Y_labels = strat_train_set["MEDV"].copy()
+a=x_train.dropna(subset=["RM"]) # It is just a copy . Real data is not altered
+a.shape
+# Get rid of the whole attribute
+x_train.drop("RM",axis=1).shape
+median = x_train["RM"].median
+print(median)
+x_train["RM"].fillna(median,inplace=True)
+x_train.describe()
+x_train.shape
+imputer = SimpleImputer(strategy="median")
+imputer.fit(x_train)
+X = imputer.transform(x_train)
+imputer.statistics_
+imputer.statistics_.shape
+X_tr=pd.DataFrame(X, columns=x_train.columns)
+X_tr.head()
+X_tr.describe()
+my_pipeline =Pipeline([
+    ('imputer',SimpleImputer(strategy="median")),
+    ('std_scaler',StandardScaler()),
+])
+X_num_tr=my_pipeline.fit_transform(x_train)
+X_num_tr
+X_num_tr.shape
+model = RandomForestRegressor()
+model.fit(X_num_tr , Y_labels)
+X_predictions = model.predict(X_num_tr)
+mse=mean_squared_error(Y_labels , X_predictions)
+rmse = np.sqrt(mse)
+rmse
+from sklearn.model_selection import cross_val_score
+scores=cross_val_score(model , X_num_tr , Y_labels, scoring = "neg_mean_squared_error",cv=10)
+rmse_scores=np.sqrt(-scores)
+rmse_scores
+def print_scores(scores):
+    print("Scores:" ,scores)
+    print("Mean:" ,scores.mean())
+    print("Standard deviation: " ,scores.std())
+print_scores(rmse_scores)
+X_test= strat_test_set.drop("MEDV",axis=1)
+Y_test= strat_test_set["MEDV"].copy()
+X_test_prepared = my_pipeline.transform(X_test)
+final_predictions = model.predict(X_test_prepared)
+final_mse = mean_squared_error(Y_test , final_predictions)
+final_rmse = np.sqrt(final_mse)
+print(X_test_prepared)
+final_rmse
+print(final_predictions )
+from sklearn import metrics
+
+print('Mean Absolute Error:', metrics.mean_absolute_error(Y_test, final_predictions))
+print('Mean Squared Error:', metrics.mean_squared_error(Y_test, final_predictions))
+print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(Y_test, final_predictions)))
+from sklearn.metrics import r2_score
+print("R2-score: %.2f" % r2_score(final_predictions ,Y_test) )
+x = pd.read_csv("/content/Data.csv")
+X_test = x.drop("MEDV",axis=1)
+Y_test = x["MEDV"].copy()
+X_test_prepared = my_pipeline.transform(X_test)
+final_predictions = model.predict(X_test_prepared)
+print(final_predictions)
+Y_test
